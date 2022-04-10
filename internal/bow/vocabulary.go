@@ -127,6 +127,7 @@ func NewVocabularyFromReader(reader io.Reader) (*Vocabulary, error) {
 		n.Parent = parentID
 
 		// fields [2]->[n-1] are depth levels
+		// TODO: is this right? We skip a bunch of fields here, 32 entries for ORB vectors, but depth is 6.
 		descriptor := make([]uint8, *depthLevels)
 		for i := 0; i < len(descriptor); i++ {
 			desc, err := strconv.ParseUint(fields[2+i], 10, 8)
