@@ -8,6 +8,7 @@ arXiv:1610.06475 [cs.RO]
 
 Currently you can run the following binaries:
  - `orbcheck`: run the ORB feature extractor on an image or on a video capture device.
+ - `parsevocab`: parse an ORBvoc.txt file to create an ORB vocabulary.
 
 
 ### Requirements
@@ -16,6 +17,7 @@ Currently you can run the following binaries:
 ### Status
  - [x] ORB feature extration: https://www.youtube.com/watch?v=4AvTMVD9ig0 (describes SIFT but same principles apply)
  - [ ] Lens distortion correction / camera intrinsics: https://www.youtube.com/watch?v=26nV4oDLiqc
+ - [x] ORB Vocabulary from file
  - [ ] Bag of Visual Words to store features for relocalisation (e.g during tracking failure): https://www.youtube.com/watch?v=a4cFONdc6nc 
  - [ ] Bundle adjustment / reprojection error: https://www.youtube.com/watch?v=lmj2Jk5tl60
  - [ ] Tracker goroutine to localise the camera with every frame (reprojection error and motion-only bundle adjustment): https://www.youtube.com/watch?v=0I30M6yTklo&t=191s
