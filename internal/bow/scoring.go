@@ -21,10 +21,10 @@ func (s *L1Scorer) Score(a, b BowVector) float64 {
 			j++
 		} else if a.wordIDs[i] < b.wordIDs[j] {
 			// move A forward
-			i = a.lowerBound(b.wordIDs[j])
+			i, _ = a.lowerBound(b.wordIDs[j])
 		} else {
 			// move B forward
-			j = b.lowerBound(a.wordIDs[i])
+			j, _ = b.lowerBound(a.wordIDs[i])
 		}
 	}
 	score = (-1 * score) / 2

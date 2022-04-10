@@ -3,24 +3,50 @@ package bow
 import (
 	"bufio"
 	"fmt"
+	"io"
+	"math"
 	"os"
 	"strconv"
 	"strings"
 )
 
+type Node struct {
+	ID         int
+	Parent     int
+	Children   []int
+	Descriptor []uint8
+
+	// only if the node is a word
+	WordID WordID
+	Weight WordValue
+}
+
+type Vocabulary struct {
+	BranchingFactor int
+	DepthLevels     int
+	// words for this vocabulary (leaves)
+	Words []*Node
+	// tree nodes
+	Nodes []Node
+}
+
 // Read a vocabulary file that is compatible with DBoW2 (only a subset of functionality is supported)
-func NewVocabularyFromFile(filename string) ([]string, error) {
-	// Example contents:
-	// 10 6  0 0
-	// 0 0 252 188 188 242 169 109 85 143 187 191 164 25 222 255 72 27 129 215 237 16 58 111 219 51 219 211 85 127 192 112 134 34  0
-	// 0 0 93 125 221 103 180 14 111 184 112 234 255 76 215 115 153 115 22 196 124 110 233 240 249 46 237 239 101 20 104 243 66 33  0
-	// 0 0 58 185 58 250 93 221 82 239 143 13 252 9 46 221 102 16 200 187 215 80 78 43 250 245 251 221 0 123 83 14 238 202  0
+func NewVocabularyFromFile(filename string) (*Vocabulary, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
-	scanner := bufio.NewScanner(file)
+	return NewVocabularyFromReader(file)
+}
+
+func NewVocabularyFromReader(reader io.Reader) (*Vocabulary, error) {
+	// Example contents:
+	// 10 6  0 0
+	// 0 0 252 188 188 242 169 109 85 143 187 191 164 25 222 255 72 27 129 215 237 16 58 111 219 51 219 211 85 127 192 112 134 34  0
+	// 0 0 93 125 221 103 180 14 111 184 112 234 255 76 215 115 153 115 22 196 124 110 233 240 249 46 237 239 101 20 104 243 66 33  0
+	// 0 0 58 185 58 250 93 221 82 239 143 13 252 9 46 221 102 16 200 187 215 80 78 43 250 245 251 221 0 123 83 14 238 202  0
+	scanner := bufio.NewScanner(reader)
 
 	// The first line contains the following metadata, grab it.
 	var branchingFactor *int // aka 'k'
@@ -68,16 +94,70 @@ func NewVocabularyFromFile(filename string) ([]string, error) {
 			}
 			*entry.val = &pint
 		}
+	} else {
+		return nil, fmt.Errorf("no lines read")
 	}
+	v := &Vocabulary{
+		BranchingFactor: *branchingFactor,
+		DepthLevels:     *depthLevels,
+	}
+	// subsequent lines are nodes, and not all nodes are words for the BoW vectors.
+	expectedNodes := (math.Pow(float64(v.BranchingFactor), 1+float64(v.DepthLevels)) - 1) / (float64(v.BranchingFactor) - 1)
+	expectedWords := math.Pow(float64(v.BranchingFactor), 1+float64(v.DepthLevels)) - 1
+	nodes := make([]Node, 0, int(expectedNodes))
+	words := make([]*Node, 0, int(expectedWords))
+	// start with a root node
+	var root Node
+	nodes = append(nodes, root)
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		fmt.Println(line)
-		// TODO parse line
+		fields := strings.Fields(line)
+		n := Node{
+			ID: len(nodes),
+		}
+		parentID, err := strconv.Atoi(fields[0])
+		isLeaf := fields[1] != "0"
+		if err != nil {
+			return nil, fmt.Errorf("parsing parent ID failed: line %v -> %s", line, err)
+		}
+		parent := nodes[parentID]
+		parent.Children = append(parent.Children, n.ID)
+		nodes[parentID] = parent
+		n.Parent = parentID
+
+		// fields [2]->[n-1] are depth levels
+		descriptor := make([]uint8, *depthLevels)
+		for i := 0; i < len(descriptor); i++ {
+			desc, err := strconv.ParseUint(fields[2+i], 10, 8)
+			if err != nil {
+				return nil, fmt.Errorf("parsing depth %v at index %v failed: line %v -> %s", i, i+2, line, err)
+			}
+			descriptor[i] = uint8(desc)
+		}
+		n.Descriptor = descriptor
+
+		// [n] is the weight
+		weight, err := strconv.ParseFloat(fields[len(fields)-1], 64)
+		if err != nil {
+			return nil, fmt.Errorf("parsing weight failed: line %v -> %s", line, err)
+		}
+		n.Weight = WordValue(weight)
+
+		if isLeaf {
+			wordID := len(words)
+			n.WordID = WordID(wordID)
+			words = append(words, &n)
+		} else if len(n.Children) == 0 {
+			n.Children = make([]int, 0, *branchingFactor)
+		}
+		nodes = append(nodes, n)
 	}
+	v.Nodes = nodes
+	v.Words = words
 
 	if err := scanner.Err(); err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return v, nil
 }
