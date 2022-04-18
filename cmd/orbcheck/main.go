@@ -109,6 +109,7 @@ func main() {
 					os.Exit(1)
 				}
 				outputImage := canvas.NewImageFromImage(outputImg)
+				outputImage.ScaleMode = canvas.ImageScaleFastest
 				windowCanvas.SetContent(outputImage)
 			}
 		}()
