@@ -1,4 +1,4 @@
-package internal
+package orb
 
 import (
 	"gocv.io/x/gocv"
@@ -37,7 +37,7 @@ const (
 // Learning: https://www.youtube.com/watch?v=4AvTMVD9ig0 for more information (it describes SIFT but works similarly for ORB too)
 // - Detect keypoints in the image
 // - Compute descriptors around each keypoint
-func OrbFeatures(img gocv.Mat, initial bool) ([]gocv.KeyPoint, gocv.Mat) {
+func Features(img gocv.Mat, initial bool) ([]gocv.KeyPoint, gocv.Mat) {
 	features := nFeatures
 	if initial {
 		features = nInitialFeatures
@@ -51,10 +51,4 @@ func OrbFeatures(img gocv.Mat, initial bool) ([]gocv.KeyPoint, gocv.Mat) {
 	// TODO: undistort
 	// TODO: assign features to grid?
 	return keypoints, descriptors
-}
-
-// Undistort the key points to account for lens distortion
-// Learning: https://www.youtube.com/watch?v=26nV4oDLiqc
-func UndistortKeyPoints(keypoints []gocv.KeyPoint) {
-	// gocv.UndistortPoints(src, dst, cameraMatrix, distCoeffs, nil, nil)
 }

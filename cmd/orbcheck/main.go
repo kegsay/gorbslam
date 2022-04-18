@@ -11,7 +11,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/canvas"
-	"github.com/kegsay/gorbslam/internal"
+	"github.com/kegsay/gorbslam/internal/orb"
 	"gocv.io/x/gocv"
 )
 
@@ -31,7 +31,7 @@ func main() {
 			log.Printf("cannot load image at %s", *flagImg)
 			os.Exit(1)
 		}
-		keypoints, _ := internal.OrbFeatures(img, false)
+		keypoints, _ := orb.Features(img, false)
 		log.Printf("Detected %d keypoints", len(keypoints))
 		outputMat := gocv.NewMatWithSize(img.Rows(), img.Cols(), img.Type())
 		gocv.DrawKeyPoints(img, keypoints, &outputMat, color.RGBA{G: 255}, gocv.DrawDefault)
@@ -96,7 +96,7 @@ func main() {
 					os.Exit(1)
 				}
 
-				keypoints, _ := internal.OrbFeatures(frame, false)
+				keypoints, _ := orb.Features(frame, false)
 				log.Printf("Detected %d keypoints", len(keypoints))
 				if len(keypoints) == 0 {
 					continue
