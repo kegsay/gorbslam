@@ -1,8 +1,6 @@
 package orb
 
 import (
-	"fmt"
-
 	"gocv.io/x/gocv"
 )
 
@@ -37,7 +35,7 @@ func MatchDescriptors(descA, descB gocv.Mat) []gocv.DMatch {
 	goodMatches := make([]gocv.DMatch, 0, len(matches))
 	for _, kMatches := range matches {
 		if len(kMatches) != 2 {
-			panic(fmt.Sprintf("got %d matches, want 2", len(kMatches)))
+			continue // possible to only have 1 match if we only have 1 key point
 		}
 		if kMatches[0].Distance < kMatches[1].Distance*0.75 {
 			goodMatches = append(goodMatches, kMatches[0])

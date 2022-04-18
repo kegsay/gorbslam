@@ -84,7 +84,7 @@ func matchWebcam(cap int) {
 			matches := orb.MatchDescriptors(dFrame, prevDescriptors)
 			log.Printf("found %d matches", len(matches))
 			if len(matches) > 0 {
-				outputMat := gocv.NewMatWithSize(frame.Rows()*2, frame.Cols()*2, frame.Type())
+				outputMat := gocv.NewMatWithSize(frame.Rows(), frame.Cols()*2, frame.Type())
 				gocv.DrawMatches(frame, kpFrame, *prevFrame, prevKPs, matches, &outputMat, color.RGBA{G: 255}, color.RGBA{B: 255}, nil, gocv.NotDrawSinglePoints)
 				outputImg, err := outputMat.ToImage()
 				if err != nil {
