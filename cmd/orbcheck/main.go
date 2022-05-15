@@ -2,11 +2,17 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"image/color"
 	"log"
 	"os"
 	"os/signal"
+	"runtime"
+	"runtime/debug"
 	"time"
+
+	"net/http"
+	_ "net/http/pprof"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -22,8 +28,51 @@ var (
 	flagVideoCaptureDevice = flag.Int("cam", 0, "video capture device to read from")
 )
 
+func parseFrame(w fyne.Window, vc *gocv.VideoCapture, windowCanvas fyne.Canvas, imgCanvas *canvas.Image) {
+	if !vc.IsOpened() {
+		log.Println("waiting for video capture device...")
+		time.Sleep(100 * time.Millisecond)
+		return
+	}
+	frame := gocv.NewMat()
+	defer frame.Close()
+	if !vc.Read(&frame) {
+		log.Println("failed to read frame")
+		return
+	}
+	w.Resize(fyne.NewSize(float32(frame.Cols()), float32(frame.Rows())))
+
+	//frame := gocv.IMRead(*flagImg, gocv.IMReadAnyColor)
+	if frame.Empty() {
+		log.Printf("cannot load image at %s", *flagImg)
+		os.Exit(1)
+	}
+
+	keypoints, _ := orb.Features(frame, false)
+	log.Printf("Detected %d keypoints", len(keypoints))
+	if len(keypoints) == 0 {
+		return
+	}
+	outputMat := gocv.NewMatWithSize(frame.Rows(), frame.Cols(), frame.Type())
+	defer outputMat.Close()
+	gocv.DrawKeyPoints(frame, keypoints, &outputMat, color.RGBA{G: 255}, gocv.DrawDefault)
+	outputImg, err := outputMat.ToImage()
+	if err != nil {
+		log.Printf("failed to convert output to image: %s", err)
+		os.Exit(1)
+	}
+	imgCanvas.Image = outputImg
+	imgCanvas.Refresh()
+}
+
 func main() {
 	flag.Parse()
+	// pprof
+	go func() {
+		if err := http.ListenAndServe(":6060", nil); err != nil {
+			panic(err)
+		}
+	}()
 	// run it on an image
 	if flagImg != nil && *flagImg != "" {
 		img := gocv.IMRead(*flagImg, gocv.IMReadAnyColor)
@@ -53,9 +102,9 @@ func main() {
 		a := app.New()
 		w := a.NewWindow("ORB Features [video]")
 		windowCanvas := w.Canvas()
+		frameCount := 0
 
 		go func() {
-			resized := false
 			vc, err := gocv.VideoCaptureDevice(*flagVideoCaptureDevice)
 			if err != nil {
 				log.Printf("failed to load video capture device: %s", err)
@@ -70,47 +119,25 @@ func main() {
 					close(c)
 				}
 			}()
+			var canvasImg canvas.Image
+			canvasImg.ScaleMode = canvas.ImageScaleFastest
+			windowCanvas.SetContent(&canvasImg)
 			for {
 				select {
 				case <-c:
 					return
 				default:
 				}
-				if !vc.IsOpened() {
-					log.Println("waiting for video capture device...")
-					time.Sleep(100 * time.Millisecond)
-					continue
+				parseFrame(w, vc, windowCanvas, &canvasImg)
+				frameCount++
+				if frameCount > 60 {
+					frameCount = 0
+					runtime.GC()
+					var stats runtime.MemStats
+					runtime.ReadMemStats(&stats)
+					fmt.Printf("Memory: %v MB\n", (float64(stats.Alloc)/1024.0)/1024.0)
+					debug.FreeOSMemory()
 				}
-				frame := gocv.NewMat()
-				if !vc.Read(&frame) {
-					log.Println("failed to read frame")
-				}
-				if !resized {
-					w.Resize(fyne.NewSize(float32(frame.Cols()), float32(frame.Rows())))
-					resized = true
-				}
-
-				//frame := gocv.IMRead(*flagImg, gocv.IMReadAnyColor)
-				if frame.Empty() {
-					log.Printf("cannot load image at %s", *flagImg)
-					os.Exit(1)
-				}
-
-				keypoints, _ := orb.Features(frame, false)
-				log.Printf("Detected %d keypoints", len(keypoints))
-				if len(keypoints) == 0 {
-					continue
-				}
-				outputMat := gocv.NewMatWithSize(frame.Rows(), frame.Cols(), frame.Type())
-				gocv.DrawKeyPoints(frame, keypoints, &outputMat, color.RGBA{G: 255}, gocv.DrawDefault)
-				outputImg, err := outputMat.ToImage()
-				if err != nil {
-					log.Printf("failed to convert output to image: %s", err)
-					os.Exit(1)
-				}
-				outputImage := canvas.NewImageFromImage(outputImg)
-				outputImage.ScaleMode = canvas.ImageScaleFastest
-				windowCanvas.SetContent(outputImage)
 			}
 		}()
 
